@@ -13,23 +13,23 @@ defmodule Digestex do
     :dx_profile
   end
 
-  def get(url, headers \\ []) do
-    :httpc.request(:get,{'#{url}',headers},http_options(),[], get_profile())
+  def get(url, headers \\ [], options \\ []) do
+    :httpc.request(:get,{'#{url}',headers},http_options(options),[], get_profile())
   end
 
-  def get_auth(url,user,password,headers \\ []) do
-    do_auth('#{url}',:get,user,password,"",headers,'')
+  def get_auth(url,user,password,headers \\ [], options \\ []) do
+    do_auth('#{url}',:get,user,password,"",headers,options,'')
   end
 
-  def post(url, data, headers \\ [], type \\ 'application/x-www-form-urlencoded') when is_list(headers) do
-    :httpc.request(:post,{'#{url}',headers,type,data},http_options(),[], get_profile())
+  def post(url, data, headers \\ [], options \\ [], type \\ 'application/x-www-form-urlencoded') when is_list(headers) do
+    :httpc.request(:post,{'#{url}',headers,type,data},http_options(options),[], get_profile())
   end
 
-  def post_auth(url,user,password,data,headers \\ [], type \\ 'application/x-www-form-urlencoded') do
-    do_auth('#{url}',:post,user,password,data,headers,type)
+  def post_auth(url,user,password,data,headers \\ [], options \\ [], type \\ 'application/x-www-form-urlencoded') do
+    do_auth('#{url}',:post,user,password,data,headers,options,type)
   end
 
-  defp do_auth(url,method,user,password,data,headers,type) when is_binary(data) do
+  defp do_auth(url,method,user,password,data,headers,options,type) when is_binary(data) do
     uri = URI.parse(to_string(url))
 
     request = case method do
@@ -39,7 +39,7 @@ defmodule Digestex do
 
     nc = 1
 
-    response = :httpc.request(method,request,http_options(),[], get_profile())
+    response = :httpc.request(method,request,http_options(options),[], get_profile())
     case response do
       {:ok,{{_,401,_},fields,_}} ->
         # Digest?
@@ -65,7 +65,7 @@ defmodule Digestex do
                   :post -> {url,authHeader,type,String.to_charlist(data)}
                   _ -> {url,authHeader}
                 end
-                second_response = :httpc.request(method,req,http_options(),[], get_profile())
+                second_response = :httpc.request(method,req,http_options(options),[], get_profile())
                 # TODO: in the digest case, this response could yield another 401 stale=true response
                 # to handle this we need to re-encode the Digest header and retry with new new nonce, increment nc
 
@@ -91,7 +91,7 @@ defmodule Digestex do
                                 :post -> {url,stale_authHeader,type,String.to_charlist(data)}
                                 _ -> {url,stale_authHeader}
                               end
-                              :httpc.request(method,stale_req,http_options(),[], get_profile())
+                              :httpc.request(method,stale_req,http_options(options),[], get_profile())
               
                             _ -> {:error, "Unable to create digest auth response"}  
                           end
@@ -196,6 +196,10 @@ defmodule Digestex do
       {:timeout, @httpc_timeout},
       {:relaxed, true}
     ]
+  end
+
+  def http_options(options) do
+    Keyword.merge(http_options(), options)
   end
 
 end
